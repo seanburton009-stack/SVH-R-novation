@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BâtiManager - Clients, Chantiers & Devis</title>
+  <title>BâtiManager - Clients, Chantiers, Devis & RDV</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -11,6 +11,9 @@
     .tab-content.active { display: block; }
     .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); z-index: 50; align-items: center; justify-content: center; padding: 1rem; }
     .modal-backdrop.active { display: flex; }
+    .calendar-day.has-rdv { position: relative; font-weight: 700; color: #b45309; }
+    .calendar-day.has-rdv::after { content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; background: #f59e0b; border-radius: 50%; }
+    .calendar-day.selected { background-color: #f59e0b !important; color: #0f172a !important; font-weight: bold; }
     @media print {
       body * { visibility: hidden; }
       #devis-print-area, #devis-print-area * { visibility: visible; }
@@ -29,23 +32,26 @@
           <i class="fa-solid fa-trowel-bricks text-xl"></i>
         </div>
         <div>
-          <h1 class="text-lg font-bold tracking-wide leading-tight">BâtiManager</h1>
-          <p class="text-xs text-slate-400">Suivi Chantiers & Facturation</p>
+          <h1 class="text-lg font-bold tracking-wide leading-tight">BâtiManager Pro</h1>
+          <p class="text-xs text-slate-400">Chantiers, Devis & Visites</p>
         </div>
       </div>
 
       <!-- Onglets -->
       <nav class="flex flex-wrap gap-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700">
-        <button onclick="switchTab('dashboard')" id="btn-tab-dashboard" class="nav-tab px-3.5 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition bg-amber-500 text-slate-900 font-semibold shadow">
+        <button onclick="switchTab('dashboard')" id="btn-tab-dashboard" class="nav-tab px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition bg-amber-500 text-slate-900 font-semibold shadow">
           <i class="fa-solid fa-chart-pie mr-1.5"></i>Tableau de bord
         </button>
-        <button onclick="switchTab('chantiers')" id="btn-tab-chantiers" class="nav-tab px-3.5 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition text-slate-300 hover:text-white hover:bg-slate-700">
+        <button onclick="switchTab('agenda')" id="btn-tab-agenda" class="nav-tab px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition text-slate-300 hover:text-white hover:bg-slate-700">
+          <i class="fa-solid fa-calendar-days mr-1.5 text-amber-400"></i>Agenda Visites
+        </button>
+        <button onclick="switchTab('chantiers')" id="btn-tab-chantiers" class="nav-tab px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition text-slate-300 hover:text-white hover:bg-slate-700">
           <i class="fa-solid fa-helmet-safety mr-1.5"></i>Chantiers
         </button>
-        <button onclick="switchTab('clients')" id="btn-tab-clients" class="nav-tab px-3.5 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition text-slate-300 hover:text-white hover:bg-slate-700">
+        <button onclick="switchTab('clients')" id="btn-tab-clients" class="nav-tab px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition text-slate-300 hover:text-white hover:bg-slate-700">
           <i class="fa-solid fa-users mr-1.5"></i>Clients
         </button>
-        <button onclick="switchTab('devis')" id="btn-tab-devis" class="nav-tab px-3.5 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition text-slate-300 hover:text-white hover:bg-slate-700">
+        <button onclick="switchTab('devis')" id="btn-tab-devis" class="nav-tab px-3 py-1.5 rounded-lg font-medium text-xs sm:text-sm transition text-slate-300 hover:text-white hover:bg-slate-700">
           <i class="fa-solid fa-file-invoice-dollar mr-1.5"></i>Devis
         </button>
       </nav>
@@ -71,10 +77,20 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Chantiers Actifs</p>
-            <p class="text-2xl font-black text-amber-600 mt-1" id="stat-chantiers-actifs">0</p>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">RDV Visites à venir</p>
+            <p class="text-2xl font-black text-amber-600 mt-1" id="stat-rdv-count">0</p>
           </div>
           <div class="w-12 h-12 bg-amber-100 text-amber-700 rounded-lg flex items-center justify-center text-xl">
+            <i class="fa-solid fa-calendar-check"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Chantiers Actifs</p>
+            <p class="text-2xl font-black text-slate-800 mt-1" id="stat-chantiers-actifs">0</p>
+          </div>
+          <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center text-xl">
             <i class="fa-solid fa-hammer"></i>
           </div>
         </div>
@@ -84,18 +100,8 @@
             <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Clients</p>
             <p class="text-2xl font-black text-slate-800 mt-1" id="stat-clients">0</p>
           </div>
-          <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-center text-xl">
+          <div class="w-12 h-12 bg-slate-100 text-slate-700 rounded-lg flex items-center justify-center text-xl">
             <i class="fa-solid fa-users"></i>
-          </div>
-        </div>
-
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Devis Émis</p>
-            <p class="text-2xl font-black text-slate-800 mt-1" id="stat-devis">0</p>
-          </div>
-          <div class="w-12 h-12 bg-purple-100 text-purple-700 rounded-lg flex items-center justify-center text-xl">
-            <i class="fa-solid fa-file-invoice"></i>
           </div>
         </div>
 
@@ -110,31 +116,97 @@
         </div>
       </div>
 
-      <!-- Tableau Chantiers récents -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-          <h2 class="font-bold text-slate-800 flex items-center gap-2">
-            <i class="fa-solid fa-list-check text-slate-400"></i> Aperçu rapide des chantiers
-          </h2>
-          <button onclick="switchTab('chantiers')" class="text-xs font-medium text-amber-600 hover:underline">Voir tout &rarr;</button>
+      <!-- Prochaines Premières Visites & Chantiers Récents -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Widget RDV -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-amber-50/50">
+            <h2 class="font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-car-side text-amber-600"></i> Prochaines Visites Techniques
+            </h2>
+            <button onclick="openRdvModal()" class="text-xs bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-2.5 py-1 rounded-md">
+              + Nouveau RDV
+            </button>
+          </div>
+          <div class="p-4 flex-1 space-y-3" id="dashboard-rdv-list"></div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-sm">
-            <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
-              <tr>
-                <th class="px-4 py-3">Chantier / Projet</th>
-                <th class="px-4 py-3">Client</th>
-                <th class="px-4 py-3">Statut</th>
-                <th class="px-4 py-3 text-right">Budget Estimé</th>
-              </tr>
-            </thead>
-            <tbody id="dashboard-chantiers-tbody" class="divide-y divide-slate-100"></tbody>
-          </table>
+
+        <!-- Widget Chantiers -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+            <h2 class="font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-slate-400"></i> Aperçu des chantiers
+            </h2>
+            <button onclick="switchTab('chantiers')" class="text-xs font-medium text-amber-600 hover:underline">Voir tout &rarr;</button>
+          </div>
+          <div class="overflow-x-auto flex-1">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+                <tr>
+                  <th class="px-4 py-3">Chantier</th>
+                  <th class="px-4 py-3">Client</th>
+                  <th class="px-4 py-3">Statut</th>
+                  <th class="px-4 py-3 text-right">Budget</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-chantiers-tbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- 2. CHANTIERS -->
+    <!-- 2. AGENDA & RENDEZ-VOUS (CALENDRIER) -->
+    <section id="tab-agenda" class="tab-content space-y-6">
+      <div class="flex justify-between items-center flex-wrap gap-3">
+        <div>
+          <h2 class="text-xl font-black text-slate-800">Agenda & Premières Visites</h2>
+          <p class="text-xs text-slate-500">Planifiez vos visites préalables, métrés et rendez-vous clients</p>
+        </div>
+        <button onclick="openRdvModal()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold px-4 py-2 rounded-lg text-sm shadow flex items-center gap-2 transition">
+          <i class="fa-solid fa-calendar-plus"></i> Fixer une Première Visite
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Calendrier Interactif -->
+        <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-slate-800 text-lg" id="calendar-month-year">Mois Année</h3>
+            <div class="flex gap-1">
+              <button onclick="changeMonth(-1)" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><i class="fa-solid fa-chevron-left"></i></button>
+              <button onclick="changeMonth(0)" class="px-3 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg">Aujourd'hui</button>
+              <button onclick="changeMonth(1)" class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+          </div>
+
+          <!-- Jours Semaine -->
+          <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-400 uppercase py-2 border-b">
+            <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+          </div>
+
+          <!-- Grille des Jours -->
+          <div class="grid grid-cols-7 gap-1 text-center text-sm" id="calendar-grid"></div>
+        </div>
+
+        <!-- Liste des visites du jour sélectionné ou à venir -->
+        <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col space-y-4">
+          <div class="flex justify-between items-center border-b pb-3">
+            <div>
+              <h3 class="font-bold text-slate-800" id="agenda-selected-date-title">Visites planifiées</h3>
+              <p class="text-xs text-slate-400" id="agenda-selected-date-sub">Cliquez sur un jour du calendrier</p>
+            </div>
+            <button onclick="openRdvModal(null, selectedCalendarDate)" class="text-xs text-amber-600 hover:text-amber-700 font-bold">
+              + Ajouter à cette date
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto space-y-3" id="agenda-day-rdv-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. CHANTIERS -->
     <section id="tab-chantiers" class="tab-content space-y-4">
       <div class="flex justify-between items-center flex-wrap gap-3">
         <div>
@@ -149,7 +221,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="chantiers-grid"></div>
     </section>
 
-    <!-- 3. CLIENTS -->
+    <!-- 4. CLIENTS -->
     <section id="tab-clients" class="tab-content space-y-4">
       <div class="flex justify-between items-center flex-wrap gap-3">
         <div>
@@ -182,7 +254,7 @@
       </div>
     </section>
 
-    <!-- 4. DEVIS -->
+    <!-- 5. DEVIS -->
     <section id="tab-devis" class="tab-content space-y-4">
       <div class="flex justify-between items-center flex-wrap gap-3">
         <div>
@@ -218,6 +290,49 @@
 
   <!-- ZONE D'IMPRESSION DEVIS -->
   <div id="devis-print-area" class="hidden bg-white p-8 max-w-4xl mx-auto"></div>
+
+  <!-- MODAL: RENDEZ-VOUS / VISITE -->
+  <div id="modal-rdv" class="modal-backdrop">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-slate-800" id="rdv-modal-title">Planifier une Visite</h3>
+        <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form id="form-rdv" onsubmit="handleSaveRdv(event)" class="space-y-3">
+        <input type="hidden" id="input-rdv-id">
+        <div>
+          <label class="text-xs font-bold text-slate-600 uppercase">Client concerné *</label>
+          <select id="input-rdv-client" onchange="autoFillRdvAddress()" required class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-bold text-slate-600 uppercase">Date *</label>
+            <input type="date" id="input-rdv-date" required class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500">
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-600 uppercase">Heure *</label>
+            <input type="time" id="input-rdv-time" required value="09:00" class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-600 uppercase">Objet du RDV *</label>
+          <input type="text" id="input-rdv-title" required placeholder="Ex: Première visite & Métré toiture" class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-600 uppercase">Adresse du rendez-vous</label>
+          <input type="text" id="input-rdv-address" placeholder="Ex: Rue de la Station 12, 1000 Bruxelles" class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500">
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-600 uppercase">Notes & Consignes (code, accès...)</label>
+          <textarea id="input-rdv-notes" rows="2" placeholder="Appeler à l'arrivée, clé chez le voisin..." class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-3 border-t">
+          <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-lg text-slate-600 text-sm hover:bg-slate-100">Annuler</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-sm">Confirmer le RDV</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- MODAL: CLIENT -->
   <div id="modal-client" class="modal-backdrop">
@@ -263,12 +378,11 @@
         <input type="hidden" id="input-chantier-id">
         <div>
           <label class="text-xs font-bold text-slate-600 uppercase">Intitulé du Projet / Chantier *</label>
-          <input type="text" id="input-chantier-name" required placeholder="Ex: Rénovation Façade" class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500">
+          <input type="text" id="input-chantier-name" required placeholder="Ex: Rénovation Salle de bain" class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500">
         </div>
         <div>
           <label class="text-xs font-bold text-slate-600 uppercase">Client rattaché</label>
           <select id="input-chantier-client" class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500"></select>
-          <p class="text-[11px] text-slate-400 mt-0.5">Optionnel. Vous pouvez créer le client ultérieurement.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -287,7 +401,7 @@
         </div>
         <div>
           <label class="text-xs font-bold text-slate-600 uppercase">Notes & Journal de bord</label>
-          <textarea id="input-chantier-notes" rows="3" placeholder="Accès chantier, fournitures à commander..." class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500"></textarea>
+          <textarea id="input-chantier-notes" rows="3" placeholder="Fournitures à prévoir..." class="w-full px-3 py-2 border rounded-lg text-sm mt-1 focus:ring-2 focus:ring-amber-500"></textarea>
         </div>
         <div class="flex justify-end gap-2 pt-3 border-t">
           <button type="button" onclick="closeModals()" class="px-4 py-2 rounded-lg text-slate-600 text-sm hover:bg-slate-100">Annuler</button>
@@ -331,7 +445,6 @@
           </select>
         </div>
 
-        <!-- Lignes -->
         <div class="border border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
           <div class="flex justify-between items-center">
             <span class="font-bold text-xs uppercase text-slate-600 tracking-wider">Lignes de Prestations / Matériaux</span>
@@ -350,23 +463,25 @@
     </div>
   </div>
 
-  <!-- JAVASCRIPT APP -->
+  <!-- JAVASCRIPT APPLICATION -->
   <script>
     // --- GESTION DES DONNEES ---
     let store = {
-      clients: JSON.parse(localStorage.getItem('bm_v2_clients')) || [],
-      chantiers: JSON.parse(localStorage.getItem('bm_v2_chantiers')) || [],
-      devis: JSON.parse(localStorage.getItem('bm_v2_devis')) || []
+      clients: JSON.parse(localStorage.getItem('bm_v3_clients')) || [],
+      chantiers: JSON.parse(localStorage.getItem('bm_v3_chantiers')) || [],
+      devis: JSON.parse(localStorage.getItem('bm_v3_devis')) || [],
+      rdvs: JSON.parse(localStorage.getItem('bm_v3_rdvs')) || []
     };
 
     function persist() {
-      localStorage.setItem('bm_v2_clients', JSON.stringify(store.clients));
-      localStorage.setItem('bm_v2_chantiers', JSON.stringify(store.chantiers));
-      localStorage.setItem('bm_v2_devis', JSON.stringify(store.devis));
+      localStorage.setItem('bm_v3_clients', JSON.stringify(store.clients));
+      localStorage.setItem('bm_v3_chantiers', JSON.stringify(store.chantiers));
+      localStorage.setItem('bm_v3_devis', JSON.stringify(store.devis));
+      localStorage.setItem('bm_v3_rdvs', JSON.stringify(store.rdvs));
       updateDashboard();
     }
 
-    // --- NAVIGATION PAR ONGLETS ---
+    // --- NAVIGATION ONGLETS ---
     function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       const target = document.getElementById('tab-' + tabName);
@@ -384,6 +499,7 @@
       }
 
       if (tabName === 'dashboard') updateDashboard();
+      if (tabName === 'agenda') renderAgendaView();
       if (tabName === 'chantiers') renderChantiers();
       if (tabName === 'clients') renderClients();
       if (tabName === 'devis') renderDevis();
@@ -398,7 +514,187 @@
       document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('active'));
     }
 
-    // --- SECTION CHANTIERS ---
+    // --- CALENDRIER & AGENDA ---
+    let currentCalendarDate = new Date();
+    let selectedCalendarDate = new Date().toISOString().split('T')[0];
+
+    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+    function changeMonth(direction) {
+      if (direction === 0) {
+        currentCalendarDate = new Date();
+      } else {
+        currentCalendarDate.setMonth(currentCalendarDate.getMonth() + direction);
+      }
+      renderAgendaView();
+    }
+
+    function renderAgendaView() {
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
+
+      document.getElementById('calendar-month-year').innerText = `${monthNames[month]} ${year}`;
+
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; // Lundi = 0
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      // Jours vides
+      for (let i = 0; i < firstDayIndex; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'py-3 text-slate-300';
+        grid.appendChild(emptyCell);
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Jours du mois
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const hasRdv = store.rdvs.some(r => r.date === dateStr);
+        const isSelected = selectedCalendarDate === dateStr;
+        const isToday = todayStr === dateStr;
+
+        const dayBtn = document.createElement('button');
+        dayBtn.type = 'button';
+        dayBtn.className = `calendar-day py-3 rounded-lg flex flex-col items-center justify-center transition relative hover:bg-amber-100 ${
+          isSelected ? 'selected' : (isToday ? 'border border-amber-500 font-bold text-amber-600 bg-amber-50/50' : 'text-slate-700')
+        } ${hasRdv ? 'has-rdv' : ''}`;
+
+        dayBtn.innerHTML = `<span>${d}</span>`;
+        dayBtn.onclick = () => {
+          selectedCalendarDate = dateStr;
+          renderAgendaView();
+        };
+
+        grid.appendChild(dayBtn);
+      }
+
+      renderDayRdvList();
+    }
+
+    function renderDayRdvList() {
+      const list = document.getElementById('agenda-day-rdv-list');
+      const title = document.getElementById('agenda-selected-date-title');
+      const sub = document.getElementById('agenda-selected-date-sub');
+
+      const [y, m, d] = selectedCalendarDate.split('-');
+      const formattedDate = `${d} ${monthNames[parseInt(m) - 1]} ${y}`;
+      title.innerText = `Visites du ${formattedDate}`;
+
+      const dayRdvs = store.rdvs.filter(r => r.date === selectedCalendarDate).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      sub.innerText = `${dayRdvs.length} rendez-vous planifié(s)`;
+
+      list.innerHTML = '';
+      if (dayRdvs.length === 0) {
+        list.innerHTML = `
+          <div class="py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <i class="fa-regular fa-calendar text-2xl text-slate-300 mb-1"></i>
+            <p class="text-xs text-slate-500">Aucune visite prévue pour cette date.</p>
+          </div>`;
+        return;
+      }
+
+      dayRdvs.forEach(rdv => {
+        const client = store.clients.find(c => c.id === rdv.clientId);
+        const mapsUrl = rdv.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rdv.address)}` : null;
+
+        const card = document.createElement('div');
+        card.className = 'p-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white transition space-y-2 shadow-sm';
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 text-amber-900 rounded font-bold text-xs">
+              <i class="fa-regular fa-clock"></i> ${rdv.time || '09:00'}
+            </span>
+            <div class="flex gap-1.5 text-xs">
+              <button onclick="editRdv('${rdv.id}')" class="text-slate-400 hover:text-amber-600 p-1"><i class="fa-solid fa-pen"></i></button>
+              <button onclick="deleteRdv('${rdv.id}')" class="text-slate-400 hover:text-rose-600 p-1"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm">${rdv.title}</h4>
+            <p class="text-xs text-slate-600 font-medium"><i class="fa-solid fa-user mr-1 text-slate-400"></i>${client ? client.name : 'Client non renseigné'}</p>
+            ${rdv.address ? `<p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-location-dot mr-1 text-amber-500"></i>${rdv.address}</p>` : ''}
+            ${rdv.notes ? `<p class="text-xs text-slate-500 italic mt-1 bg-white p-2 rounded border border-slate-100">${rdv.notes}</p>` : ''}
+          </div>
+          <div class="flex gap-2 pt-1">
+            ${client && client.phone ? `<a href="tel:${client.phone}" class="text-[11px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-md font-semibold"><i class="fa-solid fa-phone mr-1"></i>Appeler</a>` : ''}
+            ${mapsUrl ? `<a href="${mapsUrl}" target="_blank" class="text-[11px] bg-blue-50 hover:bg-blue-100 text-blue-700 px-2.5 py-1 rounded-md font-semibold"><i class="fa-solid fa-map-location-dot mr-1"></i>Itinéraire GPS</a>` : ''}
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function openRdvModal(rdv = null, prefillDate = null) {
+      document.getElementById('form-rdv').reset();
+      const select = document.getElementById('input-rdv-client');
+      select.innerHTML = '<option value="">-- Sélectionner un client --</option>' + 
+        store.clients.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+      document.getElementById('input-rdv-id').value = rdv ? rdv.id : '';
+      document.getElementById('input-rdv-client').value = rdv ? rdv.clientId : '';
+      document.getElementById('input-rdv-date').value = rdv ? rdv.date : (prefillDate || selectedCalendarDate || new Date().toISOString().split('T')[0]);
+      document.getElementById('input-rdv-time').value = rdv ? rdv.time : '09:00';
+      document.getElementById('input-rdv-title').value = rdv ? rdv.title : 'Première visite / Devis & Métré';
+      document.getElementById('input-rdv-address').value = rdv ? rdv.address || '' : '';
+      document.getElementById('input-rdv-notes').value = rdv ? rdv.notes || '' : '';
+      document.getElementById('rdv-modal-title').innerText = rdv ? 'Modifier le RDV' : 'Planifier une Première Visite';
+      openModal('modal-rdv');
+    }
+
+    function autoFillRdvAddress() {
+      const clientId = document.getElementById('input-rdv-client').value;
+      const client = store.clients.find(c => c.id === clientId);
+      const addressInput = document.getElementById('input-rdv-address');
+      if (client && client.address && !addressInput.value) {
+        addressInput.value = client.address;
+      }
+    }
+
+    function handleSaveRdv(e) {
+      e.preventDefault();
+      const id = document.getElementById('input-rdv-id').value;
+      const data = {
+        id: id || 'rdv_' + Date.now(),
+        clientId: document.getElementById('input-rdv-client').value,
+        date: document.getElementById('input-rdv-date').value,
+        time: document.getElementById('input-rdv-time').value,
+        title: document.getElementById('input-rdv-title').value.trim(),
+        address: document.getElementById('input-rdv-address').value.trim(),
+        notes: document.getElementById('input-rdv-notes').value.trim()
+      };
+
+      if (id) {
+        const idx = store.rdvs.findIndex(r => r.id === id);
+        store.rdvs[idx] = data;
+      } else {
+        store.rdvs.push(data);
+      }
+
+      selectedCalendarDate = data.date;
+      currentCalendarDate = new Date(data.date);
+      persist();
+      closeModals();
+      renderAgendaView();
+    }
+
+    function editRdv(id) {
+      const rdv = store.rdvs.find(r => r.id === id);
+      if (rdv) openRdvModal(rdv);
+    }
+
+    function deleteRdv(id) {
+      if (confirm('Annuler et supprimer ce rendez-vous ?')) {
+        store.rdvs = store.rdvs.filter(r => r.id !== id);
+        persist();
+        renderAgendaView();
+      }
+    }
+
+    // --- CHANTIERS ---
     function renderChantiers() {
       const container = document.getElementById('chantiers-grid');
       container.innerHTML = '';
@@ -407,7 +703,7 @@
         container.innerHTML = `
           <div class="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-slate-300 p-8">
             <i class="fa-solid fa-helmet-safety text-4xl text-slate-300 mb-2"></i>
-            <p class="text-slate-500 font-medium">Aucun chantier créé pour le moment.</p>
+            <p class="text-slate-500 font-medium">Aucun chantier créé.</p>
             <button onclick="openChantierModal()" class="mt-3 text-xs bg-amber-500 font-bold text-slate-900 px-3 py-2 rounded-lg">
               Créer mon premier chantier
             </button>
@@ -503,7 +799,7 @@
       }
     }
 
-    // --- SECTION CLIENTS ---
+    // --- CLIENTS ---
     function renderClients() {
       const q = (document.getElementById('client-search')?.value || '').toLowerCase();
       const tbody = document.getElementById('clients-table-tbody');
@@ -529,8 +825,9 @@
           <td class="px-4 py-3 text-slate-600">${c.email || '-'}</td>
           <td class="px-4 py-3 text-slate-600">${c.address || '-'}</td>
           <td class="px-4 py-3 text-right space-x-2">
-            <button onclick="editClient('${c.id}')" class="text-blue-600 hover:text-blue-800"><i class="fa-solid fa-pen"></i></button>
-            <button onclick="deleteClient('${c.id}')" class="text-rose-600 hover:text-rose-800"><i class="fa-solid fa-trash"></i></button>
+            <button onclick="openRdvModal(null, null); document.getElementById('input-rdv-client').value='${c.id}'; autoFillRdvAddress();" title="Prendre RDV" class="text-amber-600 hover:text-amber-800"><i class="fa-regular fa-calendar-plus"></i></button>
+            <button onclick="editClient('${c.id}')" title="Modifier" class="text-blue-600 hover:text-blue-800"><i class="fa-solid fa-pen"></i></button>
+            <button onclick="deleteClient('${c.id}')" title="Supprimer" class="text-rose-600 hover:text-rose-800"><i class="fa-solid fa-trash"></i></button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -583,7 +880,7 @@
       }
     }
 
-    // --- SECTION DEVIS ---
+    // --- DEVIS ---
     function renderDevis() {
       const tbody = document.getElementById('devis-table-tbody');
       tbody.innerHTML = '';
@@ -782,38 +1079,63 @@
 
     // --- DASHBOARD ---
     function updateDashboard() {
+      const today = new Date().toISOString().split('T')[0];
+      const futureRdvs = store.rdvs.filter(r => r.date >= today).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+
+      document.getElementById('stat-rdv-count').innerText = futureRdvs.length;
       document.getElementById('stat-clients').innerText = store.clients.length;
       document.getElementById('stat-chantiers-actifs').innerText = store.chantiers.filter(c => c.status === 'En_Cours').length;
-      document.getElementById('stat-devis').innerText = store.devis.length;
 
       const ca = store.devis
         .filter(d => d.status === 'Accepte')
         .reduce((sum, d) => sum + (d.lines || []).reduce((acc, l) => acc + (l.qty * l.price * (1 + (l.tva / 100))), 0), 0);
       document.getElementById('stat-ca').innerText = ca.toFixed(2) + ' €';
 
-      const tbody = document.getElementById('dashboard-chantiers-tbody');
-      tbody.innerHTML = '';
-      const recents = store.chantiers.slice(-5).reverse();
-
-      if (recents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-4 text-center text-slate-400">Aucun chantier créé.</td></tr>`;
-        return;
+      // Widget Dashboard RDV
+      const rdvContainer = document.getElementById('dashboard-rdv-list');
+      rdvContainer.innerHTML = '';
+      if (futureRdvs.length === 0) {
+        rdvContainer.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Aucun rendez-vous planifié à venir.</p>';
+      } else {
+        futureRdvs.slice(0, 3).forEach(r => {
+          const client = store.clients.find(c => c.id === r.clientId);
+          const [y, m, d] = r.date.split('-');
+          rdvContainer.innerHTML += `
+            <div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50 text-xs">
+              <div>
+                <div class="font-bold text-slate-800">${r.title}</div>
+                <div class="text-slate-500 font-medium">${client ? client.name : 'Client'} • <span class="text-amber-700 font-semibold">${d}/${m} à ${r.time || '09:00'}</span></div>
+              </div>
+              <button onclick="switchTab('agenda'); selectedCalendarDate='${r.date}'; currentCalendarDate=new Date('${r.date}'); renderAgendaView();" class="text-amber-600 hover:text-amber-800 font-semibold">
+                Voir &rarr;
+              </button>
+            </div>
+          `;
+        });
       }
 
-      recents.forEach(ch => {
-        const client = store.clients.find(c => c.id === ch.clientId);
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="px-4 py-3 font-bold text-slate-800">${ch.name}</td>
-          <td class="px-4 py-3 text-slate-600">${client ? client.name : '-'}</td>
-          <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 font-semibold">${ch.status}</span></td>
-          <td class="px-4 py-3 text-right font-semibold text-slate-700">${ch.budget ? parseFloat(ch.budget).toFixed(2) + ' €' : '-'}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+      // Widget Dashboard Chantiers
+      const tbody = document.getElementById('dashboard-chantiers-tbody');
+      tbody.innerHTML = '';
+      const recents = store.chantiers.slice(-4).reverse();
+      if (recents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-4 text-center text-slate-400 text-xs">Aucun chantier créé.</td></tr>`;
+      } else {
+        recents.forEach(ch => {
+          const client = store.clients.find(c => c.id === ch.clientId);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="px-4 py-2.5 font-bold text-slate-800">${ch.name}</td>
+            <td class="px-4 py-2.5 text-slate-600">${client ? client.name : '-'}</td>
+            <td class="px-4 py-2.5"><span class="px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-semibold">${ch.status}</span></td>
+            <td class="px-4 py-2.5 text-right font-semibold text-slate-700">${ch.budget ? parseFloat(ch.budget).toFixed(2) + ' €' : '-'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
     }
 
-    // --- SAUVEGARDE & RESTAURATION FICHIER JSON ---
+    // --- EXPORT & IMPORT JSON ---
     function exportData() {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store, null, 2));
       const a = document.createElement('a');
@@ -833,6 +1155,7 @@
           const parsed = JSON.parse(e.target.result);
           if (parsed.clients && parsed.chantiers && parsed.devis) {
             store = parsed;
+            if (!store.rdvs) store.rdvs = [];
             persist();
             switchTab('dashboard');
             alert('Données restaurées avec succès !');
